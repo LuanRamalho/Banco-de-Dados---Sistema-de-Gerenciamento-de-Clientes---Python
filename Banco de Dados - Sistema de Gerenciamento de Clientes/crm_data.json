@@ -1,0 +1,20 @@
+[
+    {
+        "nome": "Carlos da Silva",
+        "endereco": "Rua dos Andradas, 0 - São Paulo - SP",
+        "telefone": "94828288",
+        "email": "cj@hotmail.com"
+    },
+    {
+        "nome": "José Santos Eduardo",
+        "endereco": "Rua dos Inválidos, 15 - Santana de Parnaíba - SP",
+        "telefone": "494283883",
+        "email": "trfj@gmail.com"
+    },
+    {
+        "nome": "Roberto Santos Salles",
+        "endereco": "Rua Santos, 92 - Salvador - BA",
+        "telefone": "8583837",
+        "email": "rss@gmail.com"
+    }
+]
