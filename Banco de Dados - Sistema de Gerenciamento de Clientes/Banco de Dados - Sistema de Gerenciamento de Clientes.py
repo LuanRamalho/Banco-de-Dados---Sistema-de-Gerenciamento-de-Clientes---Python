@@ -5,6 +5,7 @@ import os
 
 DATABASE_FILE = "crm_data.json"
 
+# --- Lógica de Dados (Mantida) ---
 def carregar_dados():
     if os.path.exists(DATABASE_FILE):
         with open(DATABASE_FILE, "r", encoding="utf-8") as f:
@@ -18,163 +19,129 @@ def salvar_dados(dados):
     with open(DATABASE_FILE, "w", encoding="utf-8") as f:
         json.dump(dados, f, indent=4, ensure_ascii=False)
 
-def buscar_cliente(nome, dados):
-    resultados = [cliente for cliente in dados if nome.lower() in cliente.get("nome", "").lower()]
-    return resultados
+# --- Interface de Cartões ---
+def criar_card(parent, cliente, indice):
+    """Cria um frame estilizado como cartão para cada cliente."""
+    card = tk.Frame(parent, bg="white", highlightbackground="#d1d1d1", highlightthickness=1, bd=0)
+    card.pack(fill=tk.X, padx=10, pady=5)
 
-def editar_cliente(indice, novos_dados, dados):
-    if 0 <= indice < len(dados):
-        dados[indice].update(novos_dados)
-        salvar_dados(dados)
-        return True
-    return False
+    # Conteúdo do Cartão
+    info_frame = tk.Frame(card, bg="white")
+    info_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.X, expand=True)
 
-def excluir_cliente(indice, dados):
-    if 0 <= indice < len(dados):
+    tk.Label(info_frame, text=cliente["nome"], font=("Arial", 12, "bold"), bg="white", fg="#333").pack(anchor="w")
+    tk.Label(info_frame, text=f"📍 {cliente['endereco']}", font=("Arial", 10), bg="white", fg="#666").pack(anchor="w")
+    tk.Label(info_frame, text=f"📞 {cliente['telefone']}  |  ✉️ {cliente['email']}", font=("Arial", 9), bg="white", fg="#888").pack(anchor="w")
+
+    # Botões de Ação no Cartão
+    btn_frame = tk.Frame(card, bg="white")
+    btn_frame.pack(side=tk.RIGHT, padx=10)
+
+    tk.Button(btn_frame, text="Editar", bg="#797A00", fg="white", command=lambda: abrir_janela_edicao(indice)).pack(side=tk.LEFT, padx=2)
+    tk.Button(btn_frame, text="Excluir", bg="#C88800", fg="white", command=lambda: excluir_card(indice)).pack(side=tk.LEFT, padx=2)
+
+def exibir_clientes(filtro=None):
+    """Limpa e redesenha a lista de cartões."""
+    # Limpa o frame interno
+    for widget in scrollable_frame.winfo_children():
+        widget.destroy()
+
+    lista_para_exibir = filtro if filtro is not None else dados
+    
+    for i, cliente in enumerate(lista_para_exibir):
+        criar_card(scrollable_frame, cliente, i)
+
+# --- Funções de Ação Atualizadas ---
+def adicionar_cliente():
+    janela_form(titulo="Adicionar Cliente", callback=salvar_novo)
+
+def abrir_janela_edicao(indice):
+    janela_form(titulo="Editar Cliente", cliente=dados[indice], callback=lambda d: salvar_edicao(indice, d))
+
+def excluir_card(indice):
+    if messagebox.askyesno("Confirmar", "Deseja excluir este cliente?"):
         del dados[indice]
         salvar_dados(dados)
-        return True
-    return False
+        exibir_clientes()
 
-def exibir_clientes():
-    lista_clientes.delete(*lista_clientes.get_children())
-    for cliente in dados:
-        lista_clientes.insert("", "end", values=(cliente["nome"], cliente["endereco"], cliente["telefone"], cliente["email"]))
+def janela_form(titulo, cliente=None, callback=None):
+    """Janela genérica para Adicionar/Editar."""
+    win = tk.Toplevel(root)
+    win.title(titulo)
+    labels = ["Nome", "Endereço", "Telefone", "Email"]
+    entries = {}
 
-def adicionar_cliente():
-    def salvar_novo_cliente():
-        try:
-            novo_cliente = {"nome": nome_entry.get(), "endereco": endereco_entry.get(), "telefone": telefone_entry.get(), "email": email_entry.get()}
-            if not all(novo_cliente.values()):
-                raise ValueError("Todos os campos devem ser preenchidos.")
-            dados.append(novo_cliente)
-            salvar_dados(dados)
-            exibir_clientes()
-            adicionar_janela.destroy()
-        except ValueError as e:
-            messagebox.showerror("Erro", str(e))
+    for i, text in enumerate(labels):
+        tk.Label(win, text=f"{text}:").grid(row=i, column=0, padx=10, pady=5, sticky="e")
+        ent = tk.Entry(win, width=30)
+        ent.grid(row=i, column=1, padx=10, pady=5)
+        if cliente:
+            ent.insert(0, cliente[text.lower()])
+        entries[text.lower()] = ent
 
-    adicionar_janela = tk.Toplevel(root)
-    adicionar_janela.title("Adicionar Cliente")
-    labels = ["Nome:", "Endereço:", "Telefone:", "E-mail:"]
-    entries = []
-    for i, label_text in enumerate(labels):
-        tk.Label(adicionar_janela, text=label_text).grid(row=i, column=0, padx=5, pady=5, sticky="w")
-        entry = tk.Entry(adicionar_janela)
-        entry.grid(row=i, column=1, padx=5, pady=5, sticky="ew")
-        entries.append(entry)
-    nome_entry, endereco_entry, telefone_entry, email_entry = entries
-    tk.Button(adicionar_janela, text="Salvar", command=salvar_novo_cliente).grid(row=len(labels), column=0, columnspan=2, pady=10)
+    def processar():
+        new_data = {k: v.get() for k, v in entries.items()}
+        if all(new_data.values()):
+            callback(new_data)
+            win.destroy()
+        else:
+            messagebox.showerror("Erro", "Preencha todos os campos.")
 
-def editar_cliente_selecionado():
-    selecionado = lista_clientes.selection()
-    if selecionado:
-        indice = lista_clientes.index(selecionado)
-        cliente = dados[indice]
+    tk.Button(win, text="Salvar", command=processar, bg="#007F6C", fg="white").grid(row=4, column=0, columnspan=2, pady=15)
 
-        def salvar_edicao():
-            try:
-                novos_dados = {"nome": nome_entry.get(), "endereco": endereco_entry.get(), "telefone": telefone_entry.get(), "email": email_entry.get()}
-                if not all(novos_dados.values()):
-                    raise ValueError("Todos os campos devem ser preenchidos.")
+def salvar_novo(novo_cliente):
+    dados.append(novo_cliente)
+    salvar_dados(dados)
+    exibir_clientes()
 
-                if editar_cliente(indice, novos_dados, dados):
-                    exibir_clientes()
-                    editar_janela.destroy()
-            except ValueError as e:
-                messagebox.showerror("Erro", str(e))
-
-        editar_janela = tk.Toplevel(root)
-        editar_janela.title("Editar Cliente")
-        labels = ["Nome:", "Endereço:", "Telefone:", "E-mail:"]
-        entries = []
-        for i, label_text in enumerate(labels):
-            tk.Label(editar_janela, text=label_text).grid(row=i, column=0, padx=5, pady=5, sticky="w")
-            entry = tk.Entry(editar_janela)
-            entry.insert(0, cliente[list(cliente.keys())[i]])
-            entry.grid(row=i, column=1, padx=5, pady=5, sticky="ew")
-            entries.append(entry)
-
-        nome_entry, endereco_entry, telefone_entry, email_entry = entries
-        tk.Button(editar_janela, text="Salvar Edição", command=salvar_edicao).grid(row=len(labels), column=0, columnspan=2, pady=10)
-    else:
-        messagebox.showinfo("Atenção", "Selecione um cliente para editar.")
-
-def excluir_cliente_selecionado():
-    selecionado = lista_clientes.selection()
-    if selecionado:
-        if messagebox.askyesno("Confirmar Exclusão", "Tem certeza que deseja excluir este cliente?"):
-            indice = lista_clientes.index(selecionado)
-            if excluir_cliente(indice, dados):
-                exibir_clientes()
-    else:
-        messagebox.showinfo("Atenção", "Selecione um cliente para excluir.")
+def salvar_edicao(indice, novos_dados):
+    dados[indice] = novos_dados
+    salvar_dados(dados)
+    exibir_clientes()
 
 def buscar_cliente_interface():
-    nome_busca = busca_entry.get()
-    resultados = buscar_cliente(nome_busca, dados)
-    lista_clientes.delete(*lista_clientes.get_children())
-    for cliente in resultados:
-        lista_clientes.insert("", "end", values=(cliente["nome"], cliente["endereco"], cliente["telefone"], cliente["email"]))
+    termo = busca_entry.get().lower()
+    resultados = [c for c in dados if termo in c["nome"].lower()]
+    exibir_clientes(resultados)
 
-# --- Interface Gráfica ---
+# --- Configuração da Janela Principal ---
 root = tk.Tk()
-root.title("Sistema de CRM")
-root.configure(bg="#e0f2f7")
+root.title("CRM - Vista em Cartões")
+root.geometry("600x500")
+root.configure(bg="#f0f4f7")
 
 dados = carregar_dados()
 
-# Estilo
-style = ttk.Style()
-style.configure("Treeview", background="#ffffff", foreground="black", rowheight=25, fieldbackground="#ffffff")
-style.configure("Treeview.Heading", background="#d0e0e3", font=('Arial Bold', 10))
-style.map('Treeview', background=[('selected', '#a7c5eb')])
+# Barra de Busca
+busca_frame = tk.Frame(root, bg="#f0f4f7", pady=10)
+busca_frame.pack(fill=tk.X, padx=10)
+busca_entry = tk.Entry(busca_frame, font=("Arial", 12))
+busca_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+tk.Button(busca_frame, text="🔍 Buscar", command=buscar_cliente_interface).pack(side=tk.LEFT)
 
-main_frame = tk.Frame(root, bg="#e0f2f7", padx=10, pady=10)
-main_frame.pack(fill=tk.BOTH, expand=True)
+# Área de Scroll para os Cartões
+container = tk.Frame(root, bg="#f0f4f7")
+container.pack(fill=tk.BOTH, expand=True)
 
-frame_lista = tk.Frame(main_frame, bg="#e0f2f7")
-frame_lista.pack(pady=(0,10), fill=tk.BOTH, expand=True)
+canvas = tk.Canvas(container, bg="#f0f4f7", highlightthickness=0)
+scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+scrollable_frame = tk.Frame(canvas, bg="#f0f4f7")
 
-scrollbar_y = tk.Scrollbar(frame_lista)
-scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-scrollbar_x = tk.Scrollbar(frame_lista, orient='horizontal')
-scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+scrollable_frame.bind(
+    "<Configure>",
+    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+)
 
-lista_clientes = ttk.Treeview(frame_lista, columns=("Nome", "Endereço", "Telefone", "Email"), show="headings", yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-lista_clientes.heading("Nome", text="Nome")
-lista_clientes.heading("Endereço", text="Endereço")
-lista_clientes.heading("Telefone", text="Telefone")
-lista_clientes.heading("Email", text="Email")
-lista_clientes.pack(fill=tk.BOTH, expand=True)
+canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=580)
+canvas.configure(yscrollcommand=scrollbar.set)
 
-scrollbar_y.config(command=lista_clientes.yview)
-scrollbar_x.config(command=lista_clientes.xview)
+canvas.pack(side="left", fill="both", expand=True)
+scrollbar.pack(side="right", fill="y")
 
-busca_frame = tk.Frame(main_frame, bg="#e0f2f7")
-busca_frame.pack(fill=tk.X)
+# Botão Global de Adicionar
+btn_add = tk.Button(root, text="+ Adicionar Novo Cliente", font=("Arial", 11, "bold"), 
+                   bg="#007F6C", fg="white", pady=10, command=adicionar_cliente)
+btn_add.pack(fill=tk.X)
 
-busca_label = tk.Label(busca_frame, text="Buscar Cliente:", bg="#e0f2f7", font=("Arial",15))
-busca_label.pack(side=tk.LEFT)
-busca_entry = tk.Entry(busca_frame, font=("Arial",15))
-busca_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-busca_botao = tk.Button(busca_frame, text="Buscar", command=buscar_cliente_interface, font=("Arial",12,"bold"), bg="#7E03A7", fg="#FFFFFF")
-busca_botao.pack(side=tk.LEFT)
-
-frame_botoes = tk.Frame(main_frame, bg="#e0f2f7")
-frame_botoes.pack()
-
-botao_adicionar = tk.Button(frame_botoes, text="Adicionar Cliente", command=adicionar_cliente, font=("Arial",12,"bold"), bg="#007F6C", fg="#FFFFFF")
-botao_adicionar.pack(side=tk.LEFT, padx=5)
-
-botao_editar = tk.Button(frame_botoes, text="Editar Cliente", command=editar_cliente_selecionado, font=("Arial",12,"bold"), bg="#797A00", fg="#FFFFFF")
-botao_editar.pack(side=tk.LEFT, padx=5)
-
-botao_excluir = tk.Button(frame_botoes, text="Excluir Cliente", command=excluir_cliente_selecionado, font=("Arial",12,"bold"), bg="#C88800", fg="#FFFFFF")
-botao_excluir.pack(side=tk.LEFT, padx=5)
-
-# Initial Display
 exibir_clientes()
-
-# Main loop
 root.mainloop()
