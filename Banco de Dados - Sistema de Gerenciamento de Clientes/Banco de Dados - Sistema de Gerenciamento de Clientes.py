@@ -106,7 +106,7 @@ def buscar_cliente_interface():
 
 # --- Configuração da Janela Principal ---
 root = tk.Tk()
-root.title("CRM - Vista em Cartões")
+root.title("Sistema de CRM")
 root.geometry("600x500")
 root.configure(bg="#f0f4f7")
 
